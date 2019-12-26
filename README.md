@@ -13,13 +13,13 @@ In Elasticsearch data is stored as documents, which is just a unit of informatio
 You query documents by using the Elastic REST API. The queries are also written in JSON. 
 
 ### The Elastic stack
-### Kibana
+#### Kibana
 Kibana is an analytics and visualization platform, which lets you easily visualize data from Elasticsearch and analyze it to make sense of it. You can think of Kibana as a web interface of the data that is stored within Elasticsearch. 
 
-### Logstash
+#### Logstash
 Traditionally, Logstash has been used to process logs from applications and send them to Elasticsearch. That's still a popular use case, but Logstash has evolved into a more general purpose tool, meaning that Logstash is a data processing pipeline. The data that Logstash receives will be handeled as events. These events are processed by Logstash and shipped off to one or more destinations. That could be Elasticsearch, a Kafka queue, an e-mail message or an HTTP endpoint. 
 
-### X-Pack
+#### X-Pack
 X-Pack is a pack of features that adds additional functionality to Elasticsearch and Kibana. A couple of its features are:
 - Adding authentication and authorization to both Kibana and Elastisearch.
 - Monitoring the performance of the Elastic stack.
@@ -29,7 +29,7 @@ X-Pack is a pack of features that adds additional functionality to Elasticsearch
 - Graph: adding relationships in your data.
 - SQL: Use SQL queries to send to Elasticsearch.
 
-### Beats
+#### Beats
 Beats is a collection of so-called data shippers. They are lightweight agents with a single purpose that you install on servers, which then sends data to Logstash or Elasticsearch. 
 
 For example there is a beat called Filebeat, which is used for collecting log files and sending the log entries off to either Logstash or Elasticsearch. 
@@ -64,8 +64,173 @@ Replication is like sharding also configured at the index level. Replication wor
 Elasticsearch also supports taking snapshots. They can be used to restore a given point in time. Snapshots can be taken at index level or for the entire cluster. You should use snapshots for backups, and replication for high availability and performance. 
 
 ## 3. Managing documents 
+Please not that all examples are made for Elasticsearch version 5.6, because that's what's running for a project at Macaw I'm working on.
+
+### Creating and deleting indices
+Create an index by running `PUT /products`. Delete it by running `DELETE /product`. 
+
+You can set the number of shards and the number of replica shards by running 
+```
+PUT /products 
+{
+    "number_of_shards": 2,
+    "number_of_replicas": 2
+}
+```
+
+### Indexing documents
+```
+POST /products/doc
+{
+    "name": "Coffee Maker",
+    "price": 50,
+    "in_stock": 10
+}
+```
+
+The response we get:
+```
+{
+  "_index": "products",
+  "_type": "doc",
+  "_id": "AW9BvCbl9lp_qflGeFCe",
+  "_version": 1,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "created": true
+}
+```
+
+The ID is important for updating the document later on.
+
+### Retreiving documents by ID
+A simple request like this:
+```
+GET /products/doc/AW9BvCbl9lp_qflGeFCe
+```
+
+Returns the selected document:
+```
+{
+  "_index": "products",
+  "_type": "doc",
+  "_id": "AW9BvCbl9lp_qflGeFCe",
+  "_version": 1,
+  "found": true,
+  "_source": {
+    "name": "Coffee Makers",
+    "price": 50,
+    "in_stock": 10
+  }
+}
+```
+
+### Updating documents
+```
+POST /products/doc/AW9BvCbl9lp_qflGeFCe/_update
+{
+  "doc": {
+    "in_stock": 9
+  }
+}
+```
+
+### Scripted updates
+Elasticsearch supports scripting, which enables you to write custom logic while accessing a document's values. For example, if you want to reduce the `in_stock` by 1, without having to know what the previous `in_stock` value was. 
+
+```
+POST /products/doc/AW9BvCbl9lp_qflGeFCe/_update
+{
+  "script": {
+    "source": "ctx._source.in_stock--"
+  }
+}
+```
+
+Ctx stands for context. Whe can access the source document through its `_source` property, which gives us an object containing the document's fields. In this case, we accessed the `in_stock` property and subtracted one from it. 
+
+It is also possible to provide parameters to the script, so you can subtract an exact value from `in_stock`, for example.
+
+```
+POST /products/doc/AW9BvCbl9lp_qflGeFCe/_update
+{
+  "script": {
+    "source": "ctx._source.in_stock -= params.count",
+    "params": {
+        "count": 4
+    }
+  }
+}
+```
+
+### Deleting a document
+Due to Elasticsearch using REST for their API, it's easily guessable what command should be run for deleting a document:
+```
+DELETE /products/doc/AW9BvCbl9lp_qflGeFCe
+```
 
 ## 4. Mapping
+In Elasticsearch, mappings are used to define how documents and their fields should be stored and indexed. The point of doing this, is to store and index data in a way that is appropriate for how we want to search our data. A couple of examples of what mappings can be used for, could be to define which fields should be treated as full text fields, which fields contain numbers, dates, or geographical locations. You can also specify the date formats for date fields, and also specify analyzers for full text fields. You can kind of think of mappings in Elasticsearch as the equivalent of defining a schema for a table in a relational database, such as MySQL. 
+
+### Dynamic mapping
+Elasticsearch supports a thing called dynamic mapping. This way it detects the data type by looking at the data provided. If a property contains a value "2000/01/01", it will detect and store it as a date.
+
+To look at which mappings have been added automatically through dynamic mapping, run the query `GET /products/doc/_mapping`
+
+You can see the results for yourself, but one thing I want to mention is how text fields are treated. 
+
+A part of the mapping response looks like this:
+```
+"name": {
+    "type": "text",
+    "fields": {
+        "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+        }
+    }
+}
+```
+
+Notice how the "name" field is mapped as the type "text", but also notice that it has a "fields" property containing a field named "keyword" with a type of "keyword". What this means is that the field has two mappings. By default, each text field is mapped using both the "text" type and the "keyword" type. The difference between the two, is that "text" type is used for full-text searches, and the "keyword" type for exact matches, aggregations and such. 
+
+### Meta fields
+Every document that is stored within an Elasticsearch cluster, has some meta-data associated with them. 
+- `_index`: Contains the name of the index to which a document belongs.
+- `_id`: Stores the ID of a document.
+- `_source`: Contains the original JSON object used when indexing a document. 
+- `_field_names`: Contains the names of every field that contains a non-null value.
+- `_routing`: Stores the value used to route a document to a shard.
+- `_version`: Stores the internal version of a document.
+- `_meta`: May be used to store custom data that is left untouched by Elasticsearch.
+
+### Field data types
+#### Core data types
+- Text data type: `text` - used to index full-text value such as descriptions. Values are analyzed. 
+- Keyword data type: `keyword` - used for structured data (tags, categories, e-mail addresses, ...). Not analyzed. Typically for filtering and aggregations.
+- Numeric data types: `float`, `long`, `short` and more.. - Basic numeric data types, most of which are found in various programming languages.
+- Date data type: `date` - Represents dates as either a string, long or integer. The date format may be configured.
+- Boolean data type: `boolean` - Stores boolean values.
+- Binary data type: `binary` - Accepts a Base64 encoded binary value. Not stored by default. 
+- Range data type: `integer_range`, `float_range`, `long_range`, `double_range`, `date_range` - Used for range values such as date ranges or numeric ranges (e.g. 10-20).
+
+#### Complex data types
+- Object data type - Added as JSON objects; stored as key-value pairs internally. May contain nested objects. 
+- Array "data type" - Not an actual data type, because each field may contain multiple values by default.
+- Nested data type: `nested` - Specialized version of the `object` data type. Enables arrays of objects to be querified independently of each other. 
+
+#### Geo data types
+- Geo-point data type: `geo_point` - Accepts latitude-longitude pairs. Used for various geographical operations.
+- Geo-shape data type: `geo_shape` - Used for geographical shapes such as polygons, circles etc.
+
+#### Specialized data types
+- IP data type: `ip` - Used for storing IPv4 and IPv6 IP addresses.
+- Completion data type: `completion` - Used to provide auto-completion ("search-as-you-type") functionality. Optimized for quick lookups.
+- Attachment data type: `attachment` - Used to make text from various document formats searchable (e.g. PPT, PDF, RTF, ...). Requires the Ingest Attachment Processor Plugin.
 
 ## 5. Analysis & Analyzers
 
