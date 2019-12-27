@@ -233,8 +233,26 @@ Every document that is stored within an Elasticsearch cluster, has some meta-dat
 - Attachment data type: `attachment` - Used to make text from various document formats searchable (e.g. PPT, PDF, RTF, ...). Requires the Ingest Attachment Processor Plugin.
 
 ## 5. Analysis & Analyzers
+When indexing a document its full-text fields are run through an analysis process. By full-text fields we're refering to fields of the type `text` and not `keyword` fields. `keyword` fields are not analysed.
+
+Basically it involves tokenizing text into terms, lowercasing text etc. More generally speaking, the analysis process involves tokenizing and normalizing a block of text. This is done to make the text easier to search. You have full control over the analyzer process because it's possible to control which analyzer is used. The standard analyzer is sufficient in most cases though. 
+
+### A closer look at analyzers
+An analyzer consists of three things:
+- Character filters
+- Token filters
+- Tokenizer
+
+An analyzer is basically a package of these building blocks with each one of them changing the input stream. So when indexing a document it goes through the following flow. 
+
+First, zero or more character filters. A character filter receives a text fields original text and can then transform the value by adding, removing or changing characters. An example of this could be to strip out any HTML markup. 
+
+Afterwards, a tokenizer splits the text into individual tokens, which will usually be words. An analyzer may only have 1 tokenizer. It basically splits by whitespace and also removes most symbols such as commas, periods and semicolons. That's because most symbols are not useful when it comes to searching as they are intended for being read by humans.
+
+After splitting the text into tokens, it runs through zero or more token filters. A token filter may add, remove or change tokens. This is kind of similar to a character filter, but token filters work with the token stream instead of a character stream. There are a couple of different token filters with the simplest one beign a lowercase token filter, which just converts all characters to lowercase. Another token filter that you can make use of is named "stop". It removes common words which are referred to as stop words. These are words such as "the", "a", "and", "at", etc. These are words that don't really provide any value to a field, in terms of searchability, because each word gives a document very little significance in terms of relevance. Another token filter worth mentioning is one named "synonym", which is useful for giving similar words the same meaning. 
 
 ## 6. Introduction to searching
+
 
 ## 7. Term level queries
 
