@@ -6,7 +6,7 @@ Elasticsearch can do full-text searches, but not only that. It can also query st
 
 A quite common use case of Elasticsearch is APM, which stands for Application Performance Management. It allows you to analyze stored logs from applications and various server system metrics. You can even use alerts in case an error occurs multiple times within a certain time range. 
 
-Elasticsearch can also be used for anomality detection. If your website normally has 50.000 visitors, and now only has 5.000, there probably is something wrong. You can figure that out manually, but that's pretty time consuming. What you can do it let machine learning learn the "norm" and let you know when there's an anormality. This is all done for you in Elastisearch.
+Elasticsearch can also be used for anomality detection. If your website normally has 50.000 visitors, and now only has 5.000, there probably is something wrong. You can figure that out manually, but that's pretty time consuming. What you can do it let machine learning learn the "norm" and let you know when there's an anomality. This is all done for you in Elasticsearch.
 
 In Elasticsearch data is stored as documents, which is just a unit of information. A document is essentially just a JSON object. 
 
@@ -17,11 +17,11 @@ You query documents by using the Elastic REST API. The queries are also written 
 Kibana is an analytics and visualization platform, which lets you easily visualize data from Elasticsearch and analyze it to make sense of it. You can think of Kibana as a web interface of the data that is stored within Elasticsearch. 
 
 #### Logstash
-Traditionally, Logstash has been used to process logs from applications and send them to Elasticsearch. That's still a popular use case, but Logstash has evolved into a more general purpose tool, meaning that Logstash is a data processing pipeline. The data that Logstash receives will be handeled as events. These events are processed by Logstash and shipped off to one or more destinations. That could be Elasticsearch, a Kafka queue, an e-mail message or an HTTP endpoint. 
+Traditionally, Logstash has been used to process logs from applications and send them to Elasticsearch. That's still a popular use case, but Logstash has evolved into a more general purpose tool, meaning that Logstash is a data processing pipeline. The data that Logstash receives will be handled as events. These events are processed by Logstash and shipped off to one or more destinations. That could be Elasticsearch, a Kafka queue, an e-mail message or an HTTP endpoint. 
 
 #### X-Pack
 X-Pack is a pack of features that adds additional functionality to Elasticsearch and Kibana. A couple of its features are:
-- Adding authentication and authorization to both Kibana and Elastisearch.
+- Adding authentication and authorization to both Kibana and Elasticsearch.
 - Monitoring the performance of the Elastic stack.
 - Alerting
 - Reporting: export the Kibana visualizations and dashboards to PDF files.
@@ -107,7 +107,7 @@ The response we get:
 
 The ID is important for updating the document later on.
 
-### Retreiving documents by ID
+### Retrieving documents by ID
 A simple request like this:
 ```
 GET /products/doc/AW9BvCbl9lp_qflGeFCe
@@ -233,7 +233,7 @@ Every document that is stored within an Elasticsearch cluster, has some meta-dat
 - Attachment data type: `attachment` - Used to make text from various document formats searchable (e.g. PPT, PDF, RTF, ...). Requires the Ingest Attachment Processor Plugin.
 
 ## 5. Analysis & Analyzers
-When indexing a document its full-text fields are run through an analysis process. By full-text fields we're refering to fields of the type `text` and not `keyword` fields. `keyword` fields are not analysed.
+When indexing a document its full-text fields are run through an analysis process. By full-text fields we're referring to fields of the type `text` and not `keyword` fields. `keyword` fields are not analysed.
 
 Basically it involves tokenizing text into terms, lowercasing text etc. More generally speaking, the analysis process involves tokenizing and normalizing a block of text. This is done to make the text easier to search. You have full control over the analyzer process because it's possible to control which analyzer is used. The standard analyzer is sufficient in most cases though. 
 
@@ -249,10 +249,133 @@ First, zero or more character filters. A character filter receives a text fields
 
 Afterwards, a tokenizer splits the text into individual tokens, which will usually be words. An analyzer may only have 1 tokenizer. It basically splits by whitespace and also removes most symbols such as commas, periods and semicolons. That's because most symbols are not useful when it comes to searching as they are intended for being read by humans.
 
-After splitting the text into tokens, it runs through zero or more token filters. A token filter may add, remove or change tokens. This is kind of similar to a character filter, but token filters work with the token stream instead of a character stream. There are a couple of different token filters with the simplest one beign a lowercase token filter, which just converts all characters to lowercase. Another token filter that you can make use of is named "stop". It removes common words which are referred to as stop words. These are words such as "the", "a", "and", "at", etc. These are words that don't really provide any value to a field, in terms of searchability, because each word gives a document very little significance in terms of relevance. Another token filter worth mentioning is one named "synonym", which is useful for giving similar words the same meaning. 
+After splitting the text into tokens, it runs through zero or more token filters. A token filter may add, remove or change tokens. This is kind of similar to a character filter, but token filters work with the token stream instead of a character stream. There are a couple of different token filters with the simplest one being a lowercase token filter, which just converts all characters to lowercase. Another token filter that you can make use of is named "stop". It removes common words which are referred to as stop words. These are words such as "the", "a", "and", "at", etc. These are words that don't really provide any value to a field, in terms of searchability, because each word gives a document very little significance in terms of relevance. Another token filter worth mentioning is one named "synonym", which is useful for giving similar words the same meaning. 
 
 ## 6. Introduction to searching
+When writing search queries there are two methods in which you can do this. One of them is by writing a search query within the request body. This is done by using something called the Query DSL. This is the most flexible and common way of writing search queries. 
 
+For example:
+```
+GET /product/doc/_search
+{
+  "query": {
+    "match": {
+      "description": "red wine"
+    }
+  }
+}
+```
+
+Another method of executing a search query is by using the request URI. That is, to embed the search query directly in the request URI. This is also referred to as query string queries.
+
+For example:
+```
+GET /product/doc/_search?q=name:pasta
+```
+
+You can still perform quite advanced queries with this approach but it's less expressive and can quickly become difficult to read. There are also things you just can't do with the request URI approach. However, this way of searching can be very useful for running quick searches, perhaps for debugging from the command line or while developing. 
+
+### Introducing the Query DSL
+There are two main groups of queries in the Query DSL: leaf queries and compound queries. The basic idea is that leaf queries search for values in particular fields whereas compound queries consist of multiple leaf queries, or compound queries themselves. Compound queries are therefor recursive in nature. 
+
+A simple leaf query can look like this:
+```
+GET products/doc/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+In this case `match_all` is the name of the query. As it implies, it matches all documents.
+
+### How searching works
+You will have some kind of client, which will often be a server. That client communicates with Elasticsearch by sending search queries over HTTP. The cluster then does its magic based on the index and query you have specified in the HTTP request. When the results are ready, the cluster responds with the results, and the client can use the results for whatever purpose. 
+
+Now we'll go in a little more depth. A search query hits a given node in a cluster. This node becomes the coordinating node for the query. It broadcasts the request to all shards in the index that the query refers to. This can be both primary shards and replica shards. These shards then respond with the results, and the coordinating node will merge all of the results together into a single result, which is then sorted and returned to the client. 
+
+### Understanding query results
+This is what an Elasticsearch result can look like:
+```
+{
+  "took": 1,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 1011,
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "products",
+        "_type": "doc",
+        "_id": "14",
+        "_score": 1,
+        "_source": {
+          "name": "Nori Sea Weed - Gold Label",
+          "price": 177,
+          "in_stock": 21,
+          "sold": 411,
+          "tags": [],
+          "description": "Nulla ac enim. In tempor, turpis nec euismod scelerisque, quam turpis adipiscing lorem, vitae mattis nibh ligula nec sem. Duis aliquam convallis nunc. Proin at turpis a pede posuere nonummy. Integer non velit. Donec diam neque, vestibulum eget, vulputate ut, ultrices vel, augue. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec pharetra, magna vestibulum aliquet ultrices, erat tortor sollicitudin mi, sit amet lobortis sapien sapien non mi. Integer ac neque. Duis bibendum.",
+          "is_active": true,
+          "created": "2007/02/16"
+        }
+      }
+    ]
+  }
+}
+```
+
+Now we'll go through the returned properties:
+- `took`: an integer representing the number of milliseconds the query took to execute.
+- `timed_out`: a flag indicating whether or not the search request timed out.
+- `shards`: this object contains the total number of shards that were searched and the number of shards that completed successfully or failed. 
+- `hits`: contains the search results.
+  - `total`: total number of documents that match the search criteria.
+  - `max_score`: contains the highest score for any of the matched documents. By default, matched are sorted by their relevant score.
+  - `hits`: an array containing the matched documents. By default, the first 10 documents are returned. 
+    - `_score`: each matching document has a `_score` property which is a number how well the document matched the search query.  
+
+### Understanding relevance scores
+Until fairly recently Elasticsearch has made use of an algorithm named TF/IDF, short for Term Frequency / Inverse Document Frequency. Now an algorithm named Okapi BM25 is used. This algorithm does share many similarities with the older one. We'll discuss how the old algorithm works and then show the differences that PM25 adds. 
+
+First, we have something called a Term Frequency. It looks at how many times a given term appears in the field that we're searching for in particular documents. The more times the term appears the more relevant the document is, at least for that term. 
+
+The second factor is the Inverse Document Frequency (IDF). This refers to how often a term appears within the index. The logic here is that if a term appears in many documents, it has a lower weight. This means that words that appear many times are less significant, such as words like "the", "this", "if", etc. So if a document contains a term and it's not a common term for the fields, then this is a signal that the document is relevant.
+
+The third factor is called Field-length norm. This simply refers to how long the field is. The longer the field, the less likely to words within the field are to be relevant. For example, the term "salad" in a title of 50 characters is more significant than in a 5000 character description. Therefor a term appearing in a short field has more weight than in a long field. 
+
+The Term Frequency, Inverse Document Frequency and Field-length norm are calculated and stored at index time, i.e. when a document is added or updated. These stored values are then used to calculate the weight of a given term for a particular document. Individual queries may include other factors for calculating the score of a match such as the term proximity or fuzziness for accounting for typos. 
+
+Those were the basics of the TF/IDF algorithm. Now let's look at how the BM25 algorithm compares.
+
+It used to be common practice to remove stop words when analyzing text fields with the reason being that they didn't provide any clues for calculating the relevance anyway. That has since changed, because although the value of stop words are limited, they do have some value. It's therefor no longer very common to remove stop words, which is also why you see the stop token filter for being disabled by default for the standard analyzer. The relevance algorithm then needs to handle this because otherwise we would see the weight of stop words being boosted, artificially for large fields that contain many of them. With the TF/IDF this would lead to the stop words being boosted more than they should because they occur so many times. 
+
+BM25 solves this by using something called Nonlinear Term Frequency Saturation. The idea is that BM25 has an upper limit for how much a term can be boosted based on how many times it occurs. If a term appears five to ten times it has a significantly larger impact on the relevance than if it just occurred once or twice. But as the number of occurrences increase, the relevance boost quickly becomes less significant, meaning that the boost for a term that appears 1000 times will almost be the same as if it occurred 30 times, for example. 
+
+BM25 also improves the field-length norm. Instead of treating a field in the same way across all documents, the BM25 algorithm considers each field separately. It does this by taking the average field length into account, meaning that they can distinguish a short title fields from a long title field for instance.
+
+### Query contexts
+A query can be executed in two different contexts: in a query context or a filter context.
+
+When used in a query context you're essentially asking Elasticsearch to question "how well do documents match this query?". Elasticsearch will still decide whether or not documents match in the first place, but a relevance score will also be calculated. 
+
+When adding a query clause within a filter context we ask Elasticsearch "do documents match this query clause?". I.e. documents that do not match to the query clause will not be part of the results. 
+
+The difference between the to is that with the filter context there is no relevance score calculated. That's because it's a boolean evaluation because either a document matches or it doesn't. 
+
+### Full text queries vs term level queries
+Term level queries search for exact values and are not analyzed. Full text queries are analyzed using the same analyzer that's defined for the field that is being searched. 
+
+Therefor full text queries are most of the time case independent because of the analyzer that runs the query. 
+
+Term queries are therefor better suited for matching enum values, numbers, dates, etc and not sentences.
 
 ## 7. Term level queries
 
