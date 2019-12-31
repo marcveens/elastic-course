@@ -378,8 +378,148 @@ Therefor full text queries are most of the time case independent because of the 
 Term queries are therefor better suited for matching enum values, numbers, dates, etc and not sentences.
 
 ## 7. Term level queries
+### Introduction to term level queries
+These are most commonly used for querying structured data such as dates and numbers. You can use term level queries for text fields too, for example you can search a "status" field for the term "active". Term level queries find exact matches, so this wouldn't be useful for searching a description for a certain text. 
+
+### Searching for a term
+Let's say we want to search for all documents with the `is_active` field set to `true`. That works this way:
+```
+GET products/doc/_search
+{
+  "query": {
+    "term": {
+      "is_active": {
+        "value": true
+      }
+    }
+  }
+}
+``` 
+
+If you want to search a full text for for example an enum, you would use the query for fields of the type `keyword`, since these are not analyzed. 
+
+### Searching for multiple terms
+Now we search for multiple terms instead of one. The documents will match if it contains any of the supplied values within the field that we specify. 
+
+```
+GET products/doc/_search
+{
+  "query": {
+    "terms": {
+      "tags.keyword": [
+        "Soup",
+        "Cake"
+      ]
+    }
+  }
+}
+```
+
+### Matching documents with range values
+If, for example, you can to search for products that are almost out of stock you can use the `range` query:
+
+```
+GET products/doc/_search
+{
+  "query": {
+    "range": {
+      "in_stock": {
+        "gte": 1,
+        "lte": 5
+      }
+    }
+  }
+}
+```
+
+You can also use the `range` query with dates. Say that you want to find all products created in the year 2010:
+
+```
+GET products/doc/_search
+{
+  "query": {
+    "range": {
+      "created": {
+        "gte": "2010/01/01",
+        "lte": "2010/12/31"
+      }
+    }
+  }
+}
+```
+
+### Searching with wildcards
+You can make use of two characters in the term query, the * and ?. 
+- \* - matches any character sequence including no characters
+- \? - matches any single character
+
+Example, we want to search for the term Vegetable, but we replace some characters with the * character:
+
+```
+GET products/doc/_search
+{
+  "query": {
+    "wildcard": {
+      "tags.keyword": "Veg*ble"
+    }
+  }
+}
+```
+
+### Searching with regular expressions
+```
+GET products/doc/_search
+{
+  "query": {
+    "regexp": {
+      "tags.keyword": "Veget[a-zA-Z]+ble"
+    }
+  }
+}
+```
 
 ## 8. Full text queries
+The first query we'll look at is the `match` query. It's a powerful and simple query but it allows for very flexible matching. It's very useful for queries that users enter, such as on Google. 
+
+```
+GET /recipe/default/_search
+{
+  "query": {
+    "match": {
+      "title": "Recipes with pasta or spaghetti"
+    }
+  }
+}
+```
+
+With the query above, it uses the analyzer to match documents relevant to the entered query. Tough, the order of the words that are entered are not relevant. If you want to make it relevant, you should use the `match_phrase` query:
+
+```
+GET /recipe/default/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "Spaghetti puttanesca"
+    }
+  }
+}
+```
+
+This will only return documents with a title containing those two words in the exact order.
+
+If you want to search multiple fields with a single query, you should use the `multi_match` query.
+
+```
+GET /recipe/default/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "pasta",
+      "fields": ["title", "description"]
+    }
+  }
+}
+```
 
 ## 9. Adding boolean logic to queries
 
