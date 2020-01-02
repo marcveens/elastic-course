@@ -522,6 +522,76 @@ GET /recipe/default/_search
 ```
 
 ## 9. Adding boolean logic to queries
+For adding boolean logic to queries, you'll use a group of queries, referred to as compound queries. 
+
+An example. You want to search for products that contain a "meat" tag, as well as have a price below 100. 
+
+```
+GET products/doc/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tags.keyword": {
+              "value": "Meat"
+            }
+          }
+        },
+        {
+          "range": {
+            "price": {
+              "lt": 100
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+As you can see, we're using the `bool` query. Next to that we use a `must` clause, that accepts an array of objects, and each object will be a query clause. In this case, we're combining a `term` query with a `range` query. 
+
+If you use a `should` object, you should be aware that queries within it boost the score if they match. They are not required to match, though. 
+
+If you use the following query, you should notice that the document with the `title` field named "Tuna - Bluefin" gets a higher score than the other documents that matched the `must` query:
+
+```
+GET products/doc/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "tags.keyword": {
+              "value": "Meat"
+            }
+          }
+        },
+        {
+          "range": {
+            "price": {
+              "lt": 100
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "name": {
+              "value": "tuna"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
 
 ## 10. Joining queries
 
