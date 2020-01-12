@@ -593,15 +593,132 @@ GET products/doc/_search
 }
 ```
 
-## 10. Joining queries
+## 10. Controlling query results
+### Source filtering
+You can control which fields of a document are returned when executing a query. You simply add a `_source` parameter: 
+```
+GET products/doc/_search
+{
+  "_source": ["name", "description"], 
+  "query": {
+    "match": {
+      "name": "bottle"
+    }
+  }
+}
+```
 
-## 11. Controlling query results
+In this case only the `name` and `description` fields will return for the matched documents.
 
-## 12. Aggregations
-Aggregation is a way of grouping and extracting statistics and summaries from your data. Suppose you have and index where each document corresponds to an order and each order contains an amount and a product ID. A simple example of what you can do with aggregations is to group orders by product ID and then sum the amounts to see how much each product was sold for.
+### Specify the result size
+To determine how many results are returned per query, simply add a `size` parameter:
+```
+GET products/doc/_search
+{
+  "size": 2,
+  "query": {
+    "match": {
+      "name": "bottle"
+    }
+  }
+}
+```
+
+### Specify an offset
+If you set the query result size to 2, it is likely that you want to retrieve the rest of the documents at a later time. You can do so by adding the `from` parameter to skip a certain amount of documents:
+```
+GET products/doc/_search
+{
+  "size": 2,
+  "from": 2,
+  "query": {
+    "match": {
+      "name": "bottle"
+    }
+  }
+}
+```
+
+### Sorting results
+Say you have an index of products, and you want to find out what the cheapest product is. 
+```
+GET products/doc/_search
+{
+  "sort": [
+    {
+      "price": {
+        "order": "asc"
+      }
+    }
+  ], 
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+Since `sort` is an array type, you can add multiple sort clauses if that's what you need. 
+
+## 11. Aggregations
+Aggregations are a way of grouping and extracting statistics and summaries from your data. Suppose you have and index where each document corresponds to an order and each order contains an amount and a product ID. A simple example of what you can do with aggregations is to group orders by product ID and then sum the amounts to see how much each product was sold for.
+
+### Metric aggregations
+There are two types of metric aggregations:
+- Single-value numeric metric aggregations
+  - Outputs a single value, which could be the sum of numbers on an average value
+- Multi-value numeric metric aggregations
+  - Outputs multiple values
+
+The sum aggregation is the simplest of aggregations. It simply takes a given numeric fields for a number of documents and sums up the numbers. 
+
+```
+GET orders/doc/_search
+{
+  "size": 0,
+  "aggs": {
+    "total_sales": {
+      "sum": {
+        "field": "total_amount"
+      }
+    }
+  }
+}
+```
+
+We set the `size` to 0 since we're only interested in the aggregations. The `total_sales` is just a name given to the aggregation. Since you can specify multiple aggregations, it's useful for finding the right aggregation in the results.
+
+The results looks the following:
+```
+{
+  "took": 7,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 1000,
+    "max_score": 0,
+    "hits": []
+  },
+  "aggregations": {
+    "total_sales": {
+      "value": 109209.60997009277
+    }
+  }
+}
+```
+
+As you can see we have an `aggregations` object with the `total_sales` as a child object. Within that there's a value with the sum of all `total_amount` fields.
+
+Instead of the `sum` aggregation, you could also use `avg` (average), `min` (minimum value) or `max` (maximum value). There are lots of them, all can be found here: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics.html.
+
+### Bucket aggregations
 
 
 
-## 13. Improving search results
+## 12. Improving search results
 
-## 14. Building a web application search engine
+## 13. Building a web application search engine
