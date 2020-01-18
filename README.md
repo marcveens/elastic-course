@@ -716,9 +716,78 @@ As you can see we have an `aggregations` object with the `total_sales` as a chil
 Instead of the `sum` aggregation, you could also use `avg` (average), `min` (minimum value) or `max` (maximum value). There are lots of them, all can be found here: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics.html.
 
 ### Bucket aggregations
+Instead of calculating metrics for fields, bucket aggregations create buckets of documents. Basically, sets of documents. Each bucket has a criteria which determines whether or not a given document will fall into that bucket. 
 
+An example of this is making use of the terms aggregation. In the example below we want to find out how many unique statuses there are, and how many times they exist in the index.
 
+```
+GET orders/doc/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status.keyword"
+      }
+    }
+  }
+}
+```
 
-## 12. Improving search results
+This will result the following:
+```
+...
+"aggregations": {
+    "status_terms": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "processed",
+          "doc_count": 209
+        },
+        {
+          "key": "completed",
+          "doc_count": 204
+        },
+        {
+          "key": "pending",
+          "doc_count": 199
+        },
+        {
+          "key": "cancelled",
+          "doc_count": 196
+        },
+        {
+          "key": "confirmed",
+          "doc_count": 192
+        }
+      ]
+    }
+  }
+...
+```
 
-## 13. Building a web application search engine
+### Nested aggregations
+Bucket aggregations can also have nested aggregations, also referred to as sub-aggregations. 
+
+```
+GET orders/doc/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status.keyword"
+      },
+      "aggs": {
+        "status_stats": {
+          "stats": {
+            "field": "total_amount"
+          }
+        }
+      }
+    }
+  }
+}
+```
